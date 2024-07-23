@@ -16,9 +16,9 @@ on:
       # Do not push events to branches matching refs/heads/mona/octocat
       - ".github/**"
       - '.gitignore'  
-  jobs:
-    laravel-tests:
-      runs-on: ubuntu-latest
+jobs:
+  laravel-tests:
+    runs-on: ubuntu-latest
       steps:
       - name: Setup PHP with PECL extension
         uses: actions/setup-node@v3
