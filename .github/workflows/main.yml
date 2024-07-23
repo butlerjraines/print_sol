@@ -16,6 +16,7 @@ env:
   ## Sets environment variable
   NODE_VERSION: '14.x'                # set this to the node version to use
   DIRECTORY: /var/www/print
+on: 
 jobs:
   node-release:
 
@@ -23,10 +24,14 @@ jobs:
 
     steps:
     - name: Setup PHP with PECL extension
-      uses: actions/setup-node@v3
+      uses: sctions/setup-node@v3
       with:
        node-version: ${{ env.NODE_VERSION }}
        cache: 'npm'
+    - name: Install Dependencies
+      run: |
+       npm install 
+       #npm run build
     - uses: actions/checkout@v4
     - name: parent working directory
       run: pwd
@@ -79,9 +84,3 @@ jobs:
                 #tar -xf main.tar.gz --strip-components=1
                 tar -xf deploy.tar --strip-components=1
                 rm deploy.tar
-                #php artisan clear-compiled 
-                #composer dump-autoload
-                #php artisan optimize
-                #php artisan config:cache
-                #php artisan route:cache
-                #php artisan view:cache
