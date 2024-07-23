@@ -55,7 +55,7 @@ jobs:
         sshpass -p ${{ env.PASSWORD }} ssh -o StrictHostKeyChecking=no ${{ env.USERNAME }}@${{ env.HOST }} << EOF
           cd /var/www/print
           npm install --production
-          pm2 restart print-app  # Assuming you're using PM2 to manage the Node process
+          pm2 restart print-rewards || pm2 start /var/www/print/app.js --name print-rewards
           sudo systemctl restart nginx
         EOF
     
