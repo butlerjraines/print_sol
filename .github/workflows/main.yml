@@ -1,17 +1,23 @@
 name: Deploy Node.js to Digital Ocean
 
+
+env:
+  HOST: '208.68.37.53'
+  USERNAME: 'root' 
+  PASSWORD: 'mdmj9ZLQT3Z,sve' 
+
 on: 
   push:
     branches: [ main ]
     paths-ignore:
-      # Do not push events to branches matching refs/heads/mona/octocat
+      # Do not trigger on changes to .github directory
       - ".github/**"
   pull_request:
     branches: [ main ]
     paths-ignore:
-      # Do not push events to branches matching refs/heads/mona/octocat
+      # Do not trigger on changes to .github directory or .gitignore file
       - ".github/**"
-      - '.gitignore' 
+      - '.gitignore'
 
 jobs:
   deploy:
@@ -19,45 +25,39 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
+    
     - name: Debug information
       run: |
         echo "Current directory: $(pwd)"
         echo "Directory contents:"
         ls -la
-        echo "Git status:"
-        git status
-        echo "Git log (last 5 commits):"
-        git log -n 5 --oneline
-    - name: parent working directory
-      run: pwd
+    
     - name: Use Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '20'  # Specify your Node.js version
+        node-version: '18'  # Specify your Node.js version
+        
     - name: Install dependencies
-      run: npm ci   
+      run: npm ci
+      
+    - name: Run tests
+      run: npm test
+      
     - name: Build project
       run: npm run build --if-present
-        
-    - name: executing remote ssh commands using password
-      uses: appleboy/ssh-action@master
-      with:
-        #host: ${{ secrets.SERVER_IP }}
-        host: 208.68.37.53
-        username: 'root'
-        password: 'mdmj9ZLQT3Z,sve'
-        port: 22
-        script: |
-                ls -la  # Debug: List contents of current directory
-                scp -r ./* $USERNAME@$HOST:/var/www/print/}
-                ssh $USERNAME@$HOST << EOF
-                cd /var/www/print
-                npm install --production
-                pm2 restart print-app  # Assuming you're using PM2 to manage the Node process
-                sudo systemctl restart nginx
-                EOF
+    
+    - name: Install sshpass
+      run: sudo apt-get install sshpass
+    
+    - name: Deploy to Digital Ocean
+      run: |
+        sshpass -p ${{ env.PASSWORD }} rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" ./ ${{ env.USERNAME }}@${{ env.HOST }}:/var/www/print/
+        sshpass -p ${{ env.PASSWORD }} ssh -o StrictHostKeyChecking=no ${{ env.USERNAME }}@${{ env.HOST }} << EOF
+          cd /var/www/print
+          npm install --production
+          pm2 restart print-app  # Assuming you're using PM2 to manage the Node process
+          sudo systemctl restart nginx
+        EOF
     
 
 
