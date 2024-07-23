@@ -1,1 +1,66 @@
-#placehoser
+name: Node
+#really
+on: 
+  push:
+    branches: [ main ]
+    paths-ignore:
+      # Do not push events to branches matching refs/heads/mona/octocat
+      - ".github/**"
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      # Do not push events to branches matching refs/heads/mona/octocat
+      - ".github/**"
+      - '.gitignore'
+env:
+  ## Sets environment variable
+  DIRECTORY: /var/www/print
+jobs:
+  laravel-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Setup PHP with PECL extension
+      uses: shivammathur/setup-php@v2
+      with:
+       php-version: '8.3'
+       tools: pecl
+       extensions: dom, xml
+    - uses: actions/checkout@v4
+    - name: parent working directory
+      run: pwd
+    - name: Install Dependencies
+      run: |
+       npm install 
+# Runs a set of commands using the runners shell
+    - name: echo "Run a multi-line script:${{env.API_KEY}}"   
+      run: |
+        mkdir ../build
+        cp -TR . ../build
+        which tar
+        tar -cvf deploy.tar ../build/
+        pwd
+        ls -la
+    - name: copy file via ssh password
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: 64.227.31.168
+        username: 'root'
+        password: 'mdmj9ZLQT3Z,sve'
+        port: 22
+        source: "deploy.tar"
+        target: ${{env.DIRECTORY}}
+    - name: executing remote ssh commands using password
+      uses: appleboy/ssh-action@master
+      with:
+        #host: ${{ secrets.SERVER_IP }}
+        host: 64.227.31.168
+        username: 'root'
+        password: 'mdmj9ZLQT3Z,sve'
+        port: 22
+        script: |
+                cd ${{env.DIRECTORY}}
+                tar -xf deploy.tar --strip-components=1
+                rm deploy.tar
+
+
+   
