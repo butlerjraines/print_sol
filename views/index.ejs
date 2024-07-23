@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallet Information</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Wallet Information</h1>
+        <div class="mb-3">
+            <button id="connectPhantomBtn" class="btn btn-primary">Connect to Phantom</button>
+            <button id="connectSolflareBtn" class="btn btn-info">Connect to Solflare</button>
+        </div>
+        <button id="disconnectBtn" class="btn btn-danger" style="display: none;">Disconnect</button>
+        <div id="loadingState" class="alert alert-primary mt-3" style="display: none;">
+            Reading...
+        </div>
+        <div id="walletInfo" class="mt-3" style="display: none;">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h2 class="mb-0">Wallet Address</h2>
+                </div>
+                <div class="card-body">
+                    <p class="card-text" id="walletAddress"></p>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h3 class="mb-0">PRINT Holdings</h3>
+                </div>
+                <div class="card-body">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Token Symbol</th>
+                                <th>Token Mint</th>
+                                <th>Amount</th>
+                                <th>Token Account Address</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tokenList"></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h3 class="mb-0">Daily SOL Transfer Totals (Last 7 Days)</h3>
+                </div>
+                <div class="card-body">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>From</th>
+                                <th>Total Amount (SOL)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="solTransferList"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">SOL Transfers Chart</h3>
+                </div>
+                <div class="card-body">
+                    <canvas id="solTransfersChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const connectPhantomBtn = document.getElementById('connectPhantomBtn');
+        const connectSolflareBtn = document.getElementById('connectSolflareBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const loadingState = document.getElementById('loadingState');
+        const walletInfo = document.getElementById('walletInfo');
+        const walletAddressSpan = document.getElementById('walletAddress');
+        const tokenList = document.getElementById('tokenList');
+        const solTransferList = document.getElementById('solTransferList');
+        const solTransfersChart = document.getElementById('solTransfersChart');
+
+        let wallet = null;
+        let chart = null;
+
+        async function connectWallet(providerName) {
+            try {
+                loadingState.style.display = 'block';
+                walletInfo.style.display = 'none';
+                
+                let provider;
+                if (providerName === 'phantom') {
+                    provider = window.solana;
+                } else if (providerName === 'solflare') {
+                    provider = window.solflare;
+                }
+
+                if (!provider) {
+                    alert(`${providerName.charAt(0).toUpperCase() + providerName.slice(1)} wallet not found. Please install it.`);
+                    loadingState.style.display = 'none';
+                    return;
+                }
+
+                await provider.connect();
+                wallet = provider;
+                const publicKey = provider.publicKey.toString();
+                walletAddressSpan.textContent = publicKey;
+
+                // Fetch wallet info
+                const response = await fetch(`/get-wallet-info?address=${publicKey}`);
+                const data = await response.json();
+                if (data.error) {
+                    throw new Error(data.error + (data.details ? `: ${data.details}` : ''));
+                }
+
+                // Populate token list
+                tokenList.innerHTML = '';
+                data.significantTokens.forEach(token => {
+                    const row = tokenList.insertRow();
+                    row.insertCell(0).textContent = 'PRINT';
+                    row.insertCell(1).textContent = token.mint;
+                    row.insertCell(2).textContent = token.amount.toFixed(2);
+                    row.insertCell(3).textContent = token.tokenAccountAddress;
+                });
+
+                // Fetch daily SOL transfer totals
+                const solTransfersResponse = await fetch(`/get-daily-transfer-totals?address=${publicKey}`);
+                const solTransfersData = await solTransfersResponse.json();
+                if (solTransfersData.error) {
+                    throw new Error(solTransfersData.error + (solTransfersData.details ? `: ${solTransfersData.details}` : ''));
+                }
+
+                // Populate SOL transfers list and prepare chart data
+                solTransferList.innerHTML = '';
+                const chartLabels = [];
+                const chartData = [];
+                if (solTransfersData.dailyTotals.length === 0) {
+                    const row = solTransferList.insertRow();
+                    row.insertCell(0).colSpan = 3;
+                    row.insertCell(0).textContent = 'No transfers in the last 7 days';
+                } else {
+                    solTransfersData.dailyTotals.forEach(daily => {
+                        const row = solTransferList.insertRow();
+                        
+                        // Format the date
+                        const dateObj = new Date(daily.date);
+                        const formattedDate = dateObj.toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        });
+                        
+                        row.insertCell(0).textContent = formattedDate;
+                        row.insertCell(1).textContent = daily.from || 'N/A';
+                        row.insertCell(2).textContent = daily.total.toFixed(9);
+
+                        chartLabels.unshift(formattedDate);
+                        chartData.unshift(daily.total);
+                    });
+                }
+
+                // Create or update the chart
+                if (chart) {
+                    chart.destroy();
+                }
+                chart = new Chart(solTransfersChart, {
+                    type: 'bar',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{
+                            label: 'SOL Transfers',
+                            data: chartData,
+                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'SOL Amount'
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Daily SOL Transfers (Last 7 Days)'
+                            }
+                        }
+                    }
+                });
+
+                connectPhantomBtn.style.display = 'none';
+                connectSolflareBtn.style.display = 'none';
+                disconnectBtn.style.display = 'inline-block';
+                loadingState.style.display = 'none';
+                walletInfo.style.display = 'block';
+            } catch (err) {
+                console.error("Error connecting wallet:", err);
+                alert("Failed to connect wallet: " + err.message);
+                loadingState.style.display = 'none';
+            }
+        }
+
+        function disconnectWallet() {
+            if (wallet) {
+                wallet.disconnect();
+                wallet = null;
+            }
+            connectPhantomBtn.style.display = 'inline-block';
+            connectSolflareBtn.style.display = 'inline-block';
+            disconnectBtn.style.display = 'none';
+            walletInfo.style.display = 'none';
+            loadingState.style.display = 'none';
+            walletAddressSpan.textContent = '';
+            tokenList.innerHTML = '';
+            solTransferList.innerHTML = '';
+            if (chart) {
+                chart.destroy();
+                chart = null;
+            }
+        }
+
+        connectPhantomBtn.addEventListener('click', () => connectWallet('phantom'));
+        connectSolflareBtn.addEventListener('click', () => connectWallet('solflare'));
+        disconnectBtn.addEventListener('click', disconnectWallet);
+    </script>
+</body>
+</html>

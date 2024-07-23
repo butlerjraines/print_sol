@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "@dotenvx/dotenvx": "^1.6.4",
+    "@solana/spl-token": "^0.4.8",
+    "@solana/web3.js": "^1.95.1",
+    "a": "^3.0.1",
+    "axios": "^1.7.2",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2"
+  }
+}
