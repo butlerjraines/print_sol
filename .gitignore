@@ -129,6 +129,4 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
-#ignore workflow
-.github/workflows
 
