@@ -3,6 +3,7 @@ name: Node
 
 env:
   NODE_VERSION: '14.x'                # set this to the node version to use
+  DIRECTORY: /var/www/print
 on: 
   push:
     branches: [ main ]
@@ -14,10 +15,7 @@ on:
     paths-ignore:
       # Do not push events to branches matching refs/heads/mona/octocat
       - ".github/**"
-      - '.gitignore'
-  env:
-    ## Sets environment variable
-    DIRECTORY: /var/www/print
+      - '.gitignore'  
   jobs:
     laravel-tests:
       runs-on: ubuntu-latest
