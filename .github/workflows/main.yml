@@ -47,7 +47,7 @@ jobs:
     - name: copy file via ssh password
       uses: appleboy/scp-action@v0.1.7
       with:
-        host: 64.227.31.168
+        host: 208.68.37.53
         username: 'root'
         password: 'mdmj9ZLQT3Z,sve'
         port: 22
@@ -57,7 +57,7 @@ jobs:
       uses: appleboy/ssh-action@master
       with:
         #host: ${{ secrets.SERVER_IP }}
-        host: 64.227.31.168
+        host: 208.68.37.53
         username: 'root'
         password: 'mdmj9ZLQT3Z,sve'
         port: 22
