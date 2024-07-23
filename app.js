@@ -26,6 +26,15 @@ const TOKEN_PROGRAM_ID = new PublicKey(process.env.TOKEN_PROGRAM_ID);
 const walletConnectionMode = process.env.WALLET_CONNECTION_MODE === '1' ? 1 : 0;
 const loggingEnabled = process.env.LOGGING_ENABLED === '1';
 
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Ensure logs directory exists
+const logsDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logsDir)){
+    fs.mkdirSync(logsDir);
+}
+
 // Logging function
 function logWalletAccess(req) {
   if (loggingEnabled && req.query.address) {
@@ -34,7 +43,9 @@ function logWalletAccess(req) {
     const walletAddress = req.query.address;
     const logEntry = `${dateTime},${ipAddress},${walletAddress}\n`;
     
-    fs.appendFile(path.join(__dirname, 'wallet_access.csv'), logEntry, (err) => {
+    const logFilePath = path.join(logsDir, 'wallet_access.csv');
+    
+    fs.appendFile(logFilePath, logEntry, (err) => {
       if (err) {
         console.error('Error writing to log file:', err);
       }
@@ -43,7 +54,7 @@ function logWalletAccess(req) {
 }
 
 app.get('/', (req, res) => {
-  res.render('index', { walletConnectionMode });
+  res.render('index', { walletConnectionMode: process.env.WALLET_CONNECTION_MODE === '1' ? 1 : 0 });
 });
 
 app.get('/get-wallet-info', async (req, res) => {
