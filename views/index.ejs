@@ -10,7 +10,11 @@
 <body>
     <div class="container mt-5">
         <h1 class="mb-4">Wallet Information</h1>
-        <div class="mb-3">
+        <div id="walletInputSection" class="mb-3" style="display: none;">
+            <input type="text" id="walletAddressInput" class="form-control" placeholder="Enter wallet address">
+            <button id="submitWalletBtn" class="btn btn-primary mt-2">Submit</button>
+        </div>
+        <div id="walletConnectSection" class="mb-3" style="display: none;">
             <button id="connectPhantomBtn" class="btn btn-primary">Connect to Phantom</button>
             <button id="connectSolflareBtn" class="btn btn-info">Connect to Solflare</button>
         </div>
@@ -78,6 +82,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        const walletConnectionMode = <%= walletConnectionMode %>;
+        const walletInputSection = document.getElementById('walletInputSection');
+        const walletConnectSection = document.getElementById('walletConnectSection');
+        const walletAddressInput = document.getElementById('walletAddressInput');
+        const submitWalletBtn = document.getElementById('submitWalletBtn');
         const connectPhantomBtn = document.getElementById('connectPhantomBtn');
         const connectSolflareBtn = document.getElementById('connectSolflareBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
@@ -90,6 +99,13 @@
 
         let wallet = null;
         let chart = null;
+
+        // Initialize the correct input method based on walletConnectionMode
+        if (walletConnectionMode === 1) {
+            walletConnectSection.style.display = 'block';
+        } else {
+            walletInputSection.style.display = 'block';
+        }
 
         async function connectWallet(providerName) {
             try {
@@ -112,98 +128,10 @@
                 await provider.connect();
                 wallet = provider;
                 const publicKey = provider.publicKey.toString();
-                walletAddressSpan.textContent = publicKey;
+                
+                await fetchAndDisplayWalletInfo(publicKey);
 
-                // Fetch wallet info
-                const response = await fetch(`/get-wallet-info?address=${publicKey}`);
-                const data = await response.json();
-                if (data.error) {
-                    throw new Error(data.error + (data.details ? `: ${data.details}` : ''));
-                }
-
-                // Populate token list
-                tokenList.innerHTML = '';
-                data.significantTokens.forEach(token => {
-                    const row = tokenList.insertRow();
-                    row.insertCell(0).textContent = 'PRINT';
-                    row.insertCell(1).textContent = token.mint;
-                    row.insertCell(2).textContent = token.amount.toFixed(2);
-                    row.insertCell(3).textContent = token.tokenAccountAddress;
-                });
-
-                // Fetch daily SOL transfer totals
-                const solTransfersResponse = await fetch(`/get-daily-transfer-totals?address=${publicKey}`);
-                const solTransfersData = await solTransfersResponse.json();
-                if (solTransfersData.error) {
-                    throw new Error(solTransfersData.error + (solTransfersData.details ? `: ${solTransfersData.details}` : ''));
-                }
-
-                // Populate SOL transfers list and prepare chart data
-                solTransferList.innerHTML = '';
-                const chartLabels = [];
-                const chartData = [];
-                if (solTransfersData.dailyTotals.length === 0) {
-                    const row = solTransferList.insertRow();
-                    row.insertCell(0).colSpan = 3;
-                    row.insertCell(0).textContent = 'No transfers in the last 7 days';
-                } else {
-                    solTransfersData.dailyTotals.forEach(daily => {
-                        const row = solTransferList.insertRow();
-                        
-                        // Format the date
-                        const dateObj = new Date(daily.date);
-                        const formattedDate = dateObj.toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                        });
-                        
-                        row.insertCell(0).textContent = formattedDate;
-                        row.insertCell(1).textContent = daily.from || 'N/A';
-                        row.insertCell(2).textContent = daily.total.toFixed(9);
-
-                        chartLabels.unshift(formattedDate);
-                        chartData.unshift(daily.total);
-                    });
-                }
-
-                // Create or update the chart
-                if (chart) {
-                    chart.destroy();
-                }
-                chart = new Chart(solTransfersChart, {
-                    type: 'bar',
-                    data: {
-                        labels: chartLabels,
-                        datasets: [{
-                            label: 'SOL Transfers',
-                            data: chartData,
-                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                            borderColor: 'rgba(75, 192, 192, 1)',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'SOL Amount'
-                                }
-                            }
-                        },
-                        plugins: {
-                            title: {
-                                display: true,
-                                text: 'Daily SOL Transfers (Last 7 Days)'
-                            }
-                        }
-                    }
-                });
-
-                connectPhantomBtn.style.display = 'none';
-                connectSolflareBtn.style.display = 'none';
+                walletConnectSection.style.display = 'none';
                 disconnectBtn.style.display = 'inline-block';
                 loadingState.style.display = 'none';
                 walletInfo.style.display = 'block';
@@ -214,13 +142,131 @@
             }
         }
 
+        async function submitWalletAddress() {
+            const address = walletAddressInput.value.trim();
+            if (!address) {
+                alert("Please enter a valid wallet address");
+                return;
+            }
+            loadingState.style.display = 'block';
+            walletInfo.style.display = 'none';
+            
+            try {
+                await fetchAndDisplayWalletInfo(address);
+                walletInputSection.style.display = 'none';
+                disconnectBtn.style.display = 'inline-block';
+                loadingState.style.display = 'none';
+                walletInfo.style.display = 'block';
+            } catch (err) {
+                console.error("Error fetching wallet info:", err);
+                alert("Failed to fetch wallet info: " + err.message);
+                loadingState.style.display = 'none';
+            }
+        }
+
+        async function fetchAndDisplayWalletInfo(address) {
+            walletAddressSpan.textContent = address;
+
+            // Fetch wallet info
+            const response = await fetch(`/get-wallet-info?address=${address}`);
+            const data = await response.json();
+            if (data.error) {
+                throw new Error(data.error + (data.details ? `: ${data.details}` : ''));
+            }
+
+            // Populate token list
+            tokenList.innerHTML = '';
+            data.significantTokens.forEach(token => {
+                const row = tokenList.insertRow();
+                row.insertCell(0).textContent = 'PRINT';
+                row.insertCell(1).textContent = token.mint;
+                row.insertCell(2).textContent = token.amount.toFixed(2);
+                row.insertCell(3).textContent = token.tokenAccountAddress;
+            });
+
+            // Fetch daily SOL transfer totals
+            const solTransfersResponse = await fetch(`/get-daily-transfer-totals?address=${address}`);
+            const solTransfersData = await solTransfersResponse.json();
+            if (solTransfersData.error) {
+                throw new Error(solTransfersData.error + (solTransfersData.details ? `: ${solTransfersData.details}` : ''));
+            }
+
+            // Populate SOL transfers list and prepare chart data
+            solTransferList.innerHTML = '';
+            const chartLabels = [];
+            const chartData = [];
+            if (solTransfersData.dailyTotals.length === 0) {
+                const row = solTransferList.insertRow();
+                row.insertCell(0).colSpan = 3;
+                row.insertCell(0).textContent = 'No transfers in the last 7 days';
+            } else {
+                solTransfersData.dailyTotals.forEach(daily => {
+                    const row = solTransferList.insertRow();
+                    
+                    // Format the date
+                    const dateObj = new Date(daily.date);
+                    const formattedDate = dateObj.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                    
+                    row.insertCell(0).textContent = formattedDate;
+                    row.insertCell(1).textContent = daily.from || 'N/A';
+                    row.insertCell(2).textContent = daily.total.toFixed(9);
+
+                    chartLabels.unshift(formattedDate);
+                    chartData.unshift(daily.total);
+                });
+            }
+
+            // Create or update the chart
+            if (chart) {
+                chart.destroy();
+            }
+            chart = new Chart(solTransfersChart, {
+                type: 'bar',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'SOL Transfers',
+                        data: chartData,
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'SOL Amount'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Daily SOL Transfers (Last 7 Days)'
+                        }
+                    }
+                }
+            });
+        }
+
         function disconnectWallet() {
             if (wallet) {
                 wallet.disconnect();
                 wallet = null;
             }
-            connectPhantomBtn.style.display = 'inline-block';
-            connectSolflareBtn.style.display = 'inline-block';
+            if (walletConnectionMode === 1) {
+                walletConnectSection.style.display = 'block';
+            } else {
+                walletInputSection.style.display = 'block';
+                walletAddressInput.value = '';
+            }
             disconnectBtn.style.display = 'none';
             walletInfo.style.display = 'none';
             loadingState.style.display = 'none';
@@ -233,8 +279,12 @@
             }
         }
 
-        connectPhantomBtn.addEventListener('click', () => connectWallet('phantom'));
-        connectSolflareBtn.addEventListener('click', () => connectWallet('solflare'));
+        if (walletConnectionMode === 1) {
+            connectPhantomBtn.addEventListener('click', () => connectWallet('phantom'));
+            connectSolflareBtn.addEventListener('click', () => connectWallet('solflare'));
+        } else {
+            submitWalletBtn.addEventListener('click', submitWalletAddress);
+        }
         disconnectBtn.addEventListener('click', disconnectWallet);
     </script>
 </body>
