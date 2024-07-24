@@ -51,7 +51,7 @@ jobs:
     
     - name: Deploy to Digital Ocean
       run: |
-        sshpass -p ${{ env.PASSWORD }} rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" ./ ${{ env.USERNAME }}@${{ env.HOST }}:/var/www/print/
+        sshpass -p ${{ env.PASSWORD }} rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" --chown=cat:cat ./ ${{ env.USERNAME }}@${{ env.HOST }}:/var/www/print/
         sshpass -p ${{ env.PASSWORD }} ssh -o StrictHostKeyChecking=no ${{ env.USERNAME }}@${{ env.HOST }} << EOF
           cd /var/www/print
           npm install --production
